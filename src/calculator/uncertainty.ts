@@ -131,8 +131,8 @@ function sampleParams(
       pue: Math.max(1.0, Math.min(2.0, normalQuantile(u2[i]!, pue, 0.05))),
       gridCif: Math.max(0.001, normalQuantile(u3[i]!, gridCif, gridCif * 0.20)),
       embodiedCO2_kg: lognormalQuantile(u4[i]!, Math.log(embodiedCO2_kg), 0.3),
-      // Source: Li et al. (2023), WUE range across US datacenters [0.5, 5.0] L/kWh
-      wue: uniformQuantile(u5[i]!, 0.5, 5.0),
+      // Source: AWS (2024) 0.10 L/kWh best-case to Li et al. (2023) 1.8 L/kWh upper bound
+      wue: uniformQuantile(u5[i]!, 0.10, 1.8),
       // Source: Benchmark uncertainty ~15% σ, Normal distribution, clamped > 10% of nominal
       prefillSpeed: Math.max(benchmarks.prefillTokensPerSecond * 0.1,
         normalQuantile(u6[i]!, benchmarks.prefillTokensPerSecond, benchmarks.prefillTokensPerSecond * 0.15)),

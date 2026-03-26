@@ -121,8 +121,9 @@ export function calculateEnergy(
   const network_Wh = 0;
   const embodied_Wh = 0;
 
-  const total_Wh =
-    prefill_Wh + decode_Wh + kvCache_Wh + cacheOps_Wh + network_Wh + embodied_Wh;
+  // Floor at zero: cache read savings cannot make total energy negative (thermodynamic reality)
+  const total_Wh = Math.max(0,
+    prefill_Wh + decode_Wh + kvCache_Wh + cacheOps_Wh + network_Wh + embodied_Wh);
 
   return {
     prefill_Wh,

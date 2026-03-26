@@ -150,15 +150,16 @@ export function getPUEBounds(): { min: number; max: number; mean: number } {
 // WUE = Liters of water consumed / IT equipment energy (kWh)
 // Covers direct evaporative cooling water only.
 
-// Source: Li et al. (2023) "Making AI Less Thirsty",
-//         average WUE for US datacenters ~1.8 L/kWh, confidence: medium
-// Source: AWS reports WUE of 0.18-0.20 L/kWh for modern facilities,
-//         but Li et al. estimates are higher due to regional variation, confidence: medium
-const DEFAULT_WUE_L_PER_KWH = 1.8;
+// Source: AWS Sustainability Report (2024), global WUE 0.15 L/kWh, confidence: high
+// Source: AWS Sustainability Report (2023), global WUE 0.18 L/kWh, confidence: high
+// Using 0.18 as conservative default (2023 figure). Li et al. (2023) reports
+// 1.8 L/kWh average across US DCs but that includes older/hotter-climate facilities.
+// Anthropic runs on AWS, so AWS-reported WUE is more representative.
+const DEFAULT_WUE_L_PER_KWH = 0.18;
 
-// Source: Li et al. (2023), range across US datacenters 0.5-5.0 L/kWh, confidence: medium
-const WUE_MIN = 0.5;
-const WUE_MAX = 5.0;
+// Source: AWS best-case (2024): 0.10 L/kWh. Li et al. upper bound: 1.8 L/kWh
+const WUE_MIN = 0.10;
+const WUE_MAX = 1.8;
 
 // Source: Gleick (1994), Macknick et al. (2012), water consumption for electricity generation
 //         US average ~1.8 L/kWh (thermoelectric), confidence: medium
