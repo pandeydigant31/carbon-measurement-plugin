@@ -1,6 +1,6 @@
 {
   "name": "carbon-measurement",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LCA-grounded carbon and environmental impact measurement for Claude Code sessions. ISO 14040/14044 aligned methodology with full uncertainty quantification.",
   "author": {
     "name": "Digant Pandey",
