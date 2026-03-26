@@ -1,0 +1,24 @@
+{
+  "name": "carbon-measurement",
+  "version": "0.1.0",
+  "description": "LCA-grounded carbon and environmental impact measurement for Claude Code sessions. ISO 14040/14044 aligned methodology with full uncertainty quantification.",
+  "author": {
+    "name": "Digant Pandey",
+    "url": "https://github.com/pandeydigant31"
+  },
+  "homepage": "https://github.com/pandeydigant31/carbon-measurement-plugin",
+  "repository": "https://github.com/pandeydigant31/carbon-measurement-plugin",
+  "license": "MIT",
+  "keywords": [
+    "carbon",
+    "emissions",
+    "sustainability",
+    "LCA",
+    "energy",
+    "water",
+    "uncertainty",
+    "ISO-14040"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}

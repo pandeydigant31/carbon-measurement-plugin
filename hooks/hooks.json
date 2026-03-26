@@ -23,18 +23,6 @@
           }
         ]
       }
-    ],
-    "SubAgentStop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun run \"${CLAUDE_PLUGIN_ROOT}/hooks/notification.ts\"",
-            "timeout": 50
-          }
-        ]
-      }
     ]
   }
 }

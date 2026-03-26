@@ -1,3 +1,8 @@
+---
+name: code
+description: Reviews code for performance, type safety, error handling, architecture boundaries, and test coverage
+---
+
 # Code Agent — Engineering Quality Harness
 
 ## Identity

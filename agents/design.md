@@ -1,3 +1,8 @@
+---
+name: design
+description: Reviews user-facing output for information hierarchy, numeric presentation, emotional framing, and accessibility
+---
+
 # Design Agent — UI/UX Harness
 
 ## Identity

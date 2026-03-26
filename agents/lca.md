@@ -1,3 +1,8 @@
+---
+name: lca
+description: Audits against ISO 14040/14044, validates emission factors, checks dimensional analysis, and verifies uncertainty propagation
+---
+
 # LCA Agent — Methodology Conformance Harness
 
 ## Identity
