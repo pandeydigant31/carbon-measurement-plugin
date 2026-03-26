@@ -5,13 +5,13 @@ description: View and adjust carbon measurement plugin settings
 
 ## What This Skill Does
 
-Displays current plugin configuration and allows the user to adjust settings. All settings are stored in the SQLite database at `.data/carbon.db` in the `user_config` table.
+Displays current plugin configuration and allows the user to adjust settings. All settings are stored in the SQLite database at `${CLAUDE_PLUGIN_DATA}/carbon.db` (or `.data/carbon.db` in dev) in the `user_config` table.
 
 ## How to Execute
 
 ### Step 1: Read Current Configuration
 
-Open `.data/carbon.db` and use `src/utils/config.ts` `loadConfig()` to get the current merged configuration (DB values + defaults).
+Open `${CLAUDE_PLUGIN_DATA}/carbon.db` (or `.data/carbon.db` in dev) and use `src/utils/config.ts` `loadConfig()` to get the current merged configuration (DB values + defaults).
 
 Display current settings:
 

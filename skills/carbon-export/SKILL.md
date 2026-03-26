@@ -17,7 +17,7 @@ Ask the user which format they prefer if not specified:
 
 ### Step 2: Read Session Data
 
-Open the SQLite database at `.data/carbon.db` in the plugin root directory.
+Open the SQLite database at `${CLAUDE_PLUGIN_DATA}/carbon.db` (or `.data/carbon.db` in dev) in the plugin root directory.
 
 Query all sessions:
 

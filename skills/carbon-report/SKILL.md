@@ -11,7 +11,7 @@ Generate a full environmental impact report for the current Claude Code session,
 
 ### Step 1: Read Session Data
 
-Open the SQLite database at `.data/carbon.db` using Bun's `bun:sqlite` driver (read-only). Query the current session from the `sessions` table:
+Open the SQLite database at `${CLAUDE_PLUGIN_DATA}/carbon.db` (or `.data/carbon.db` in dev) using Bun's `bun:sqlite` driver (read-only). Query the current session from the `sessions` table:
 
 ```sql
 SELECT * FROM sessions ORDER BY created_at DESC LIMIT 1;

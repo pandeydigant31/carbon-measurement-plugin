@@ -10,7 +10,10 @@ import { formatCompact, formatDetailed } from "./format.ts";
 import type { StatuslineData } from "./format.ts";
 
 const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT ?? dirname(dirname(import.meta.path));
-const DB_PATH = resolve(PLUGIN_ROOT, ".data", "carbon.db");
+const DB_PATH = resolve(
+  process.env.CLAUDE_PLUGIN_DATA ?? resolve(PLUGIN_ROOT, ".data"),
+  "carbon.db"
+);
 
 try {
   const { existsSync } = await import("node:fs");

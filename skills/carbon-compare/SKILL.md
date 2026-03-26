@@ -11,7 +11,7 @@ Compare energy and carbon footprint across Claude model families (Haiku, Sonnet,
 
 ### Step 1: Read Current Session Data
 
-Open the SQLite database at `.data/carbon.db` (read-only). Query the most recent session:
+Open the SQLite database at `${CLAUDE_PLUGIN_DATA}/carbon.db` (or `.data/carbon.db` in dev) (read-only). Query the most recent session:
 
 ```sql
 SELECT * FROM sessions ORDER BY created_at DESC LIMIT 1;

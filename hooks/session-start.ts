@@ -8,7 +8,8 @@
 import { resolve, dirname } from "node:path";
 
 const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT ?? dirname(dirname(import.meta.path));
-const DATA_DIR = resolve(PLUGIN_ROOT, ".data");
+// CLAUDE_PLUGIN_DATA persists across plugin updates; CLAUDE_PLUGIN_ROOT does not
+const DATA_DIR = process.env.CLAUDE_PLUGIN_DATA ?? resolve(PLUGIN_ROOT, ".data");
 const DB_PATH = resolve(DATA_DIR, "carbon.db");
 
 try {

@@ -9,7 +9,10 @@
 import { resolve, dirname } from "node:path";
 
 const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT ?? dirname(dirname(import.meta.path));
-const DB_PATH = resolve(PLUGIN_ROOT, ".data", "carbon.db");
+const DB_PATH = resolve(
+  process.env.CLAUDE_PLUGIN_DATA ?? resolve(PLUGIN_ROOT, ".data"),
+  "carbon.db"
+);
 
 try {
   const input = await Bun.stdin.text();
