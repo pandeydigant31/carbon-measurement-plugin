@@ -1,9 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Stop hook — Parse last response tokens, calculate energy/carbon/water/embodied,
- * run uncertainty analysis, update session.
+ * Stop hook — Parse transcript for token usage, calculate all impact categories.
  * Budget: < 50ms. Runs on EVERY assistant response.
  * MUST exit 0 on any error.
+ *
+ * Claude Code provides on stdin:
+ *   { session_id, transcript_path, cwd, hook_event_name, ... }
+ *
+ * Token usage is NOT in stdin — it's in the transcript JSONL file.
+ * We parse the transcript to extract cumulative token usage.
  */
 
 import { resolve, dirname } from "node:path";
@@ -15,6 +20,7 @@ const DB_PATH = resolve(
 );
 
 try {
+  // Read hook input from stdin
   const input = await Bun.stdin.text();
   let hookData: Record<string, unknown> = {};
   if (input.trim()) {
@@ -25,20 +31,34 @@ try {
     }
   }
 
-  const usage = hookData.usage as {
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  } | undefined;
+  const transcriptPath = hookData.transcript_path as string | undefined;
+  const sessionId = (hookData.session_id as string) ?? `session_${Date.now()}`;
 
-  if (!usage) {
+  if (!transcriptPath) {
+    // No transcript path — nothing to analyze
     process.exit(0);
   }
 
-  const model = (hookData.model as string) ?? "claude-sonnet-4-20250514";
+  // Read and parse the transcript file
+  const { readFileSync, existsSync } = await import("node:fs");
+  if (!existsSync(transcriptPath)) {
+    process.exit(0);
+  }
 
-  // Lazy-load all modules
+  const transcriptContent = readFileSync(transcriptPath, "utf-8");
+
+  const { parseTranscript, aggregateTokens } = await import("../src/parser/transcript.ts");
+  const { deduplicateUsage } = await import("../src/parser/token-counter.ts");
+
+  const rawUsages = parseTranscript(transcriptContent);
+  const usages = deduplicateUsage(rawUsages);
+  const sessionTokens = aggregateTokens(usages);
+
+  if (sessionTokens.numRequests === 0) {
+    process.exit(0);
+  }
+
+  // Load calculator modules
   const { resolveModelFamily } = await import("../src/types.ts");
   const { getHardwareProfile, UTILIZATION } = await import("../src/models/hardware-profiles.ts");
   const { getBenchmarks } = await import("../src/models/benchmarks.ts");
@@ -51,7 +71,7 @@ try {
   const { runUncertainty } = await import("../src/calculator/uncertainty.ts");
   const { CarbonStore } = await import("../src/data/store.ts");
 
-  const family = resolveModelFamily(model);
+  const family = resolveModelFamily(sessionTokens.primaryModel);
   const profile = getHardwareProfile(family);
   const benchmarks = getBenchmarks(family);
   const pue = getDefaultPUE();
@@ -59,64 +79,54 @@ try {
   const region = process.env.AWS_REGION ?? "us-east-1";
   const gridCif = getGridCIF(region);
 
+  // Aggregate token usage for the full session
   const tokenUsage = {
-    model,
+    model: sessionTokens.primaryModel,
     modelFamily: family,
-    inputTokens: usage.input_tokens ?? 0,
-    outputTokens: usage.output_tokens ?? 0,
-    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
-    cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+    inputTokens: sessionTokens.totalInputTokens,
+    outputTokens: sessionTokens.totalOutputTokens,
+    cacheCreationTokens: sessionTokens.totalCacheCreationTokens,
+    cacheReadTokens: sessionTokens.totalCacheReadTokens,
   };
 
-  // ── Calculate all impact categories ──────────────────────────
+  // Calculate all impact categories
   const energy = calculateEnergy(tokenUsage, profile, benchmarks, UTILIZATION, pue);
   const carbon = calculateCarbon(energy, gridCif, "regional", region, pue);
   const networkWh = calculateNetworkEnergy(tokenUsage.inputTokens, tokenUsage.outputTokens);
-  const networkCo2 = networkWh * gridCif; // gCO2e (same unit cancellation)
+  const networkCo2 = networkWh * gridCif;
 
-  // Embodied carbon
   const tPrefill = benchmarks.prefillTokensPerSecond > 0
     ? tokenUsage.inputTokens / benchmarks.prefillTokensPerSecond : 0;
   const tDecode = benchmarks.tps > 0 ? tokenUsage.outputTokens / benchmarks.tps : 0;
-  const inferenceTime_s = tPrefill + tDecode;
-  const embodied = calculateEmbodied(inferenceTime_s, profile, UTILIZATION.gpuUtilizationMean);
-
-  // Water
+  const embodied = calculateEmbodied(tPrefill + tDecode, profile, UTILIZATION.gpuUtilizationMean);
   const water = calculateWater(energy.total_Wh, wue, region);
 
   // Uncertainty (1000 LHS draws)
-  const uncertainty = runUncertainty(
-    tokenUsage, profile, benchmarks, UTILIZATION, pue, gridCif
-  );
+  const uncertainty = runUncertainty(tokenUsage, profile, benchmarks, UTILIZATION, pue, gridCif);
 
-  // ── Persist to SQLite ────────────────────────────────────────
+  // Persist to SQLite — store cumulative session totals (replace, not accumulate)
+  const { mkdirSync } = await import("node:fs");
+  mkdirSync(dirname(DB_PATH), { recursive: true });
+
   const store = new CarbonStore(DB_PATH);
-  const sessionId = store.getConfig("current_session_id") ?? `session_${Date.now()}`;
-  const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  store.saveConfig("current_session_id", sessionId);
 
-  store.saveRequest({
-    id: requestId,
-    sessionId,
-    model,
-    inputTokens: tokenUsage.inputTokens,
-    outputTokens: tokenUsage.outputTokens,
-    cacheCreationTokens: tokenUsage.cacheCreationTokens,
-    cacheReadTokens: tokenUsage.cacheReadTokens,
-    energy_wh: energy.total_Wh,
-    co2_g: carbon.total_gCO2e + embodied.total_gCO2e + networkCo2,
-    timestamp: new Date().toISOString(),
-  });
+  // Store cumulative output tokens for human-hours estimation in statusline
+  store.saveConfig("session_output_tokens", String(sessionTokens.totalOutputTokens));
 
+  const totalCo2 = carbon.operational_gCO2e + embodied.total_gCO2e + networkCo2;
+
+  // Use direct SQL for a clean REPLACE of session totals (transcript gives us cumulative data)
   store.updateSessionTotals(sessionId, {
-    inputTokens: tokenUsage.inputTokens,
-    outputTokens: tokenUsage.outputTokens,
-    cacheCreationTokens: tokenUsage.cacheCreationTokens,
-    cacheReadTokens: tokenUsage.cacheReadTokens,
+    inputTokens: sessionTokens.totalInputTokens,
+    outputTokens: sessionTokens.totalOutputTokens,
+    cacheCreationTokens: sessionTokens.totalCacheCreationTokens,
+    cacheReadTokens: sessionTokens.totalCacheReadTokens,
     energy_wh: energy.total_Wh,
     co2_operational_g: carbon.operational_gCO2e,
     co2_embodied_g: embodied.total_gCO2e,
     co2_network_g: networkCo2,
-    co2_total_g: carbon.operational_gCO2e + embodied.total_gCO2e + networkCo2,
+    co2_total_g: totalCo2,
     networkEnergy_wh: networkWh,
     water_direct_ml: water.direct_mL,
     water_indirect_ml: water.indirect_mL,
@@ -127,7 +137,7 @@ try {
     energy_high_wh: uncertainty.energyHigh_Wh,
     uncertainty_key_driver: uncertainty.keyDriver,
     uncertainty_key_driver_fraction: uncertainty.keyDriverVarianceFraction,
-    model,
+    model: sessionTokens.primaryModel,
   });
 
   store.close();

@@ -2,20 +2,55 @@
  * Parse Claude Code JSONL transcript files into token usage data.
  *
  * Claude Code transcripts are JSONL files where each line is a JSON object.
- * We look for assistant messages that contain usage fields with token counts.
+ * Assistant messages have this structure:
+ *   {
+ *     "type": "assistant",
+ *     "message": {
+ *       "type": "message",
+ *       "role": "assistant",
+ *       "model": "claude-opus-4-6",
+ *       "usage": {
+ *         "input_tokens": 1234,
+ *         "output_tokens": 567,
+ *         "cache_creation_input_tokens": 100,
+ *         "cache_read_input_tokens": 200
+ *       }
+ *     }
+ *   }
  */
 
-import type { TokenUsage, SessionTokens, TranscriptMessage } from "../types.ts";
+import type { TokenUsage, SessionTokens } from "../types.ts";
 import { resolveModelFamily } from "../types.ts";
+
+interface TranscriptLine {
+  type?: string;
+  model?: string;
+  message?: {
+    type?: string;
+    role?: string;
+    model?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+  };
+  // Legacy flat format (for testing and compatibility)
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
+}
 
 /**
  * Parse a JSONL transcript string into an array of TokenUsage entries.
  *
- * Handles edge cases:
- * - Empty lines are skipped silently
- * - Malformed JSON lines are skipped with a console.warn
- * - Missing numeric fields default to 0
- * - Lines without type === "assistant" or without usage are skipped
+ * Handles both formats:
+ *   - Real Claude Code: usage nested under message.usage, model under message.model
+ *   - Flat format: usage and model at top level (for testing)
  */
 export function parseTranscript(jsonlContent: string): TokenUsage[] {
   const usages: TokenUsage[] = [];
@@ -25,25 +60,27 @@ export function parseTranscript(jsonlContent: string): TokenUsage[] {
     const line = lines[i]!.trim();
     if (line === "") continue;
 
-    let parsed: TranscriptMessage;
+    let parsed: TranscriptLine;
     try {
-      parsed = JSON.parse(line) as TranscriptMessage;
+      parsed = JSON.parse(line) as TranscriptLine;
     } catch {
-      console.warn(
-        `Skipping malformed JSON on line ${i + 1}: ${line.slice(0, 80)}...`
-      );
+      // Skip malformed lines silently in production
       continue;
     }
 
-    // Only extract usage from assistant messages that have a usage block
     if (parsed.type !== "assistant") continue;
-    if (!parsed.usage) continue;
-    if (!parsed.model) continue;
 
-    const usage = parsed.usage;
+    // Try nested format first (real Claude Code transcripts)
+    const msg = parsed.message;
+    const usage = msg?.usage ?? parsed.usage;
+    const model = msg?.model ?? parsed.model;
+
+    if (!usage) continue;
+    if (!model) continue;
+
     usages.push({
-      model: parsed.model,
-      modelFamily: resolveModelFamily(parsed.model),
+      model,
+      modelFamily: resolveModelFamily(model),
       inputTokens: usage.input_tokens ?? 0,
       outputTokens: usage.output_tokens ?? 0,
       cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
@@ -77,7 +114,6 @@ export function aggregateTokens(usages: TokenUsage[]): SessionTokens {
     modelCounts.set(u.model, (modelCounts.get(u.model) ?? 0) + 1);
   }
 
-  // Determine primary model: the one with the most requests
   let primaryModel = "unknown";
   let maxCount = 0;
   for (const [model, count] of modelCounts) {

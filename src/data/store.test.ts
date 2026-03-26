@@ -96,26 +96,27 @@ describe("CarbonStore", () => {
     expect(totals!.co2_total_g).toBeCloseTo(0.9, 2);
   });
 
-  test("updateSessionTotals accumulates on existing session", () => {
+  test("updateSessionTotals replaces on existing session (transcript gives cumulative data)", () => {
     setup();
-    // First request
-    store.updateSessionTotals("accum-session", {
+    // First call with partial data
+    store.updateSessionTotals("replace-session", {
       inputTokens: 1000, outputTokens: 500,
       cacheCreationTokens: 0, cacheReadTokens: 0,
       energy_wh: 2.0, co2_g: 0.8, networkEnergy_wh: 0.002,
       model: "claude-sonnet-4-20250514",
     });
 
-    // Second request
-    store.updateSessionTotals("accum-session", {
-      inputTokens: 500, outputTokens: 200,
+    // Second call with cumulative totals (replaces, not accumulates)
+    store.updateSessionTotals("replace-session", {
+      inputTokens: 1500, outputTokens: 700,
       cacheCreationTokens: 0, cacheReadTokens: 0,
-      energy_wh: 1.0, co2_g: 0.4, networkEnergy_wh: 0.001,
+      energy_wh: 3.0, co2_g: 1.2, networkEnergy_wh: 0.003,
       model: "claude-sonnet-4-20250514",
     });
 
-    const totals = store.getSessionTotals("accum-session");
+    const totals = store.getSessionTotals("replace-session");
     expect(totals).not.toBeNull();
+    // Should be the LATEST values, not accumulated
     expect(totals!.energy_total_wh).toBeCloseTo(3.003, 2);
     expect(totals!.co2_total_g).toBeCloseTo(1.2, 2);
   });

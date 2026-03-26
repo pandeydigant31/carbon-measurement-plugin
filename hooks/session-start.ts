@@ -21,8 +21,13 @@ try {
   const { CarbonStore } = await import("../src/data/store.ts");
   const store = new CarbonStore(DB_PATH);
 
-  // Read session ID from environment (Claude Code provides this)
-  const sessionId = process.env.SESSION_ID ?? `session_${Date.now()}`;
+  // Read session ID from stdin (Claude Code provides it in the hook payload)
+  const input = await Bun.stdin.text();
+  let hookData: Record<string, unknown> = {};
+  if (input.trim()) {
+    try { hookData = JSON.parse(input); } catch {}
+  }
+  const sessionId = (hookData.session_id as string) ?? `session_${Date.now()}`;
 
   // Store session start timestamp
   store.saveConfig("current_session_id", sessionId);

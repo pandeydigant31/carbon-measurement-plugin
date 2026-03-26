@@ -58,6 +58,37 @@ describe("parseTranscript", () => {
     expect(parseTranscript("")).toHaveLength(0);
     expect(parseTranscript("\n\n")).toHaveLength(0);
   });
+
+  test("parses real Claude Code nested format (message.usage, message.model)", () => {
+    const jsonl = [
+      '{"type":"assistant","message":{"type":"message","role":"assistant","model":"claude-opus-4-6","usage":{"input_tokens":3,"cache_creation_input_tokens":45317,"cache_read_input_tokens":0,"output_tokens":2,"service_tier":"standard"}}}',
+      '{"type":"assistant","message":{"type":"message","role":"assistant","model":"claude-sonnet-4-6","usage":{"input_tokens":1500,"output_tokens":800,"cache_creation_input_tokens":0,"cache_read_input_tokens":12000}}}',
+    ].join("\n");
+
+    const result = parseTranscript(jsonl);
+    expect(result).toHaveLength(2);
+
+    expect(result[0]!.model).toBe("claude-opus-4-6");
+    expect(result[0]!.modelFamily).toBe("opus");
+    expect(result[0]!.inputTokens).toBe(3);
+    expect(result[0]!.outputTokens).toBe(2);
+    expect(result[0]!.cacheCreationTokens).toBe(45317);
+
+    expect(result[1]!.model).toBe("claude-sonnet-4-6");
+    expect(result[1]!.cacheReadTokens).toBe(12000);
+  });
+
+  test("handles mixed flat and nested formats", () => {
+    const jsonl = [
+      '{"type":"assistant","model":"claude-sonnet-4-20250514","usage":{"input_tokens":100,"output_tokens":50}}',
+      '{"type":"assistant","message":{"model":"claude-opus-4-6","usage":{"input_tokens":200,"output_tokens":100}}}',
+    ].join("\n");
+
+    const result = parseTranscript(jsonl);
+    expect(result).toHaveLength(2);
+    expect(result[0]!.model).toBe("claude-sonnet-4-20250514");
+    expect(result[1]!.model).toBe("claude-opus-4-6");
+  });
 });
 
 describe("aggregateTokens", () => {
