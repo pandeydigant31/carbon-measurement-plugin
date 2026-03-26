@@ -19,6 +19,5 @@
     "uncertainty",
     "ISO-14040"
   ],
-  "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "skills": "./skills/"
 }
