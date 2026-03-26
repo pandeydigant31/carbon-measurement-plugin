@@ -140,6 +140,40 @@ try {
     model: sessionTokens.primaryModel,
   });
 
+  // ── Auto Model Comparison ──────────────────────────────────────
+  // Calculate energy for all 3 model families using the same token counts,
+  // then store as JSON for trend/compare views (v0.3.0).
+  const { compareModels } = await import("../src/calculator/comparative.ts");
+  const modelComparison = compareModels(
+    tokenUsage.inputTokens,
+    tokenUsage.outputTokens,
+    gridCif,
+    (compFamily) => {
+      const compProfile = getHardwareProfile(compFamily);
+      const compBenchmarks = getBenchmarks(compFamily);
+      const compUsage = { ...tokenUsage, modelFamily: compFamily };
+      return calculateEnergy(compUsage, compProfile, compBenchmarks, UTILIZATION, pue);
+    },
+  );
+
+  store.saveConfig(
+    "last_model_comparison",
+    JSON.stringify({
+      sessionId,
+      timestamp: new Date().toISOString(),
+      currentModel: family,
+      inputTokens: tokenUsage.inputTokens,
+      outputTokens: tokenUsage.outputTokens,
+      gridCif,
+      models: modelComparison.map((m) => ({
+        family: m.family,
+        energy_Wh: m.energy_Wh,
+        co2_gCO2e: m.co2_gCO2e,
+        relativeToBaseline: m.relativeToBaseline,
+      })),
+    }),
+  );
+
   store.close();
 } catch (err) {
   console.error(`[carbon-plugin] stop hook error: ${err}`);
